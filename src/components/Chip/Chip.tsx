@@ -1,4 +1,5 @@
 import React from "react";
+import { sanitize } from "dompurify";
 import { highlightSubString } from "../../utils";
 import type { KeyboardEvent, MouseEvent, HTMLProps } from "react";
 import { ValueOf, PropsWithSpread } from "types";
@@ -87,7 +88,7 @@ const Chip = ({
       <span
         className="p-chip__value"
         dangerouslySetInnerHTML={{
-          __html: quoteValue ? `'${chipValue}'` : chipValue,
+          __html: sanitize(quoteValue ? `'${chipValue}'` : chipValue),
         }}
       />
     </>

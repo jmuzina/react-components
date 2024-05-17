@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { sanitize } from "dompurify";
 import Chip from "../../Chip";
 import { overflowingChipsCount, isChipInArray } from "../utils";
 import { highlightSubString } from "../../../utils";
@@ -100,7 +101,7 @@ const FilterPanelSection = ({
             <h3
               className="p-filter-panel-section__heading"
               dangerouslySetInnerHTML={{
-                __html: highlightSubString(heading, searchTerm).text,
+                __html: sanitize(highlightSubString(heading, searchTerm).text),
               }}
             />
           )}
