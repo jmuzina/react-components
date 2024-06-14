@@ -15,12 +15,11 @@ jobs:
         with:
           sparse-checkout: |
             src/
-            .storybook/
 
       - name: Populate artifact directory
-        run: |
+        run:
           mkdir -p artifact
-          cp -R src/ .storybook/ artifact/.
+          cp -R src/ artifact/.
 
       # Archive the PR number associated with this workflow since it won't be available in the base workflow context
       # https://github.com/orgs/community/discussions/25220
