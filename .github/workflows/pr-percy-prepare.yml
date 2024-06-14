@@ -20,7 +20,7 @@ jobs:
         run: ls -la
 
       - name: Populate artifact directory
-        run:
+        run: |
           mkdir -p artifact
           cp -R src/ artifact/.
 
