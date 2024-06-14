@@ -130,7 +130,7 @@
     "lint-style": "stylelint src/**/*.scss",
     "lint-package-json": "npmPkgJsonLint .",
     "lint": "yarn lint-package-json && yarn lint-js && yarn lint-style",
-    "percy": "yarn build-docs && percy storybook ./docs",
+    "percy": "yarn build-docs && percy storybook -d ./docs",
     "serve": "yarn docs",
     "start": "yarn docs",
     "test": "jest",
