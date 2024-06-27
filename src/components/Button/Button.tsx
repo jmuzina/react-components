@@ -103,6 +103,7 @@ const Button = <P,>({
       aria-disabled={disabled || undefined}
       {...buttonProps}
     >
+      <span>This is some test text that will break Percy</span>
       {children}
     </Component>
   );
