@@ -1,9 +1,19 @@
+# This workflow is triggered by the `pr-percy-prepare` workflows.
+# It checks out the SCSS/example markup changes and uploads them to Github as an artifact.
 name: "Prepare Percy build"
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
+    inputs: 
+      pr_number:
+        required: true
+        type: number
+      repository: 
+        required: true
+        type: string
+      commitsh:
+        required: true
+        type: string
 
 jobs:
   copy_artifact:
@@ -13,22 +23,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            src/
+          sparse-checkout: src/
+          ref: ${{ github.event.inputs.commitsh }}
+          repository: ${{ github.event.inputs.repository }}
 
       - name: Populate artifact directory
         run: |
           mkdir -p artifact
           cp -R src/ artifact/.
-
+        
       # Archive the PR number associated with this workflow since it won't be available in the base workflow context
       # https://github.com/orgs/community/discussions/25220
       - name: Archive PR data
         if: github.event_name=='pull_request'
         working-directory: artifact
         run: |
-          echo ${{ github.event.number }} > pr_num.txt
-          echo ${{ github.event.pull_request.head.sha }} > pr_head_sha.txt
+          echo ${{ inputs.pr_number }} > pr_num.txt
+          echo ${{ inputs.commitsh }} > pr_head_sha.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
