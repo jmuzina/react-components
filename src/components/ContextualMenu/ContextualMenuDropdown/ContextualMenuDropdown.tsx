@@ -145,6 +145,7 @@ const generateLink = <L,>(
     <Button<L>
       className={classNames("p-contextual-menu__link", className)}
       key={key}
+      role={props.role || "menuitem"}
       onClick={
         onClick
           ? (evt) => {
@@ -356,6 +357,7 @@ const ContextualMenuDropdown = <L,>({
         aria-hidden={isOpen ? "false" : "true"}
         aria-label={Label.Dropdown}
         ref={dropdown}
+        role={props.role || "menu"}
         style={{
           ...(constrainPanelWidth && positionStyle?.width
             ? { width: positionStyle.width, minWidth: 0, maxWidth: "none" }
@@ -374,9 +376,17 @@ const ContextualMenuDropdown = <L,>({
           : links.map((item, i) => {
               if (Array.isArray(item)) {
                 return (
-                  <span className="p-contextual-menu__group" key={i}>
+                  <span
+                    className="p-contextual-menu__group"
+                    key={i}
+                    role="group"
+                  >
                     {item.map((link, j) =>
-                      generateLink<L>(link, j, handleClose),
+                      generateLink<L>(
+                        link,
+                        j,
+                        handleClose,
+                      ),
                     )}
                   </span>
                 );
@@ -387,7 +397,11 @@ const ContextualMenuDropdown = <L,>({
                   </div>
                 );
               }
-              return generateLink<L>(item, i, handleClose);
+              return generateLink<L>(
+                item,
+                i,
+                handleClose,
+              );
             })}
       </span>
     </span>
