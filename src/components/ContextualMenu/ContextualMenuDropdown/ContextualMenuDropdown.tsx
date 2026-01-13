@@ -240,6 +240,28 @@ const ContextualMenuDropdown = <L,>({
     );
   }, [adjustedPosition, positionCoords, verticalPosition, constrainPanelWidth]);
 
+  const focusFirstItem = useCallback(() => {
+    // list of focusable selectors is based on this Stack Overflow answer:
+    // https://stackoverflow.com/a/30753870/3732840
+    const focusableElementSelectors =
+      'a[href]:not([tabindex="-1"]), button:not([disabled]):not([aria-disabled="true"]), textarea:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), input:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), select:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), area[href]:not([tabindex="-1"]), iframe:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]), [contentEditable=true]:not([tabindex="-1"])';
+    // the item is not interactable until the next animation frame.
+    requestAnimationFrame(() => {
+      const firstItem = dropdown?.current?.querySelector(focusableElementSelectors);
+      if (firstItem) {
+        (firstItem as HTMLElement).focus();
+      }
+    });
+  }, [dropdown]);
+
+  useEffect(() => {
+    if (!isOpen || !dropdown.current) return;
+    focusFirstItem();
+  }, [dropdown, focusFirstItem, isOpen]);
+
+  // keyboard listener for TAB key
+
+
   const updateVerticalPosition = useCallback(() => {
     if (!positionNode) {
       return;
