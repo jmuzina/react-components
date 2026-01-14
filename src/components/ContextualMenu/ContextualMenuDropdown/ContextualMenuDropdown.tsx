@@ -45,6 +45,7 @@ export type Props<L = null> = {
 /**
  * Calculate the styles for the menu.
  * @param position - The menu position.
+ * @param verticalPosition - The vertical position (top or bottom).
  * @param positionCoords - The coordinates of the position node.
  * @param constrainPanelWidth - Whether the menu width should be constrained to the position width.
  */
@@ -134,11 +135,13 @@ export const adjustForWindow = (
  * @param link - A button
  * @param key - A key for the DOM.
  * @param handleClose - The function to close the menu.
+ * @param ref - Optional ref for focus management.
  */
 const generateLink = <L,>(
   link: ButtonProps,
   key: React.Key,
   handleClose: Props["handleClose"],
+  ref?: React.Ref<HTMLButtonElement>
 ) => {
   const { children, className, onClick, ...props } = link;
   return (
@@ -156,6 +159,7 @@ const generateLink = <L,>(
             }
           : null
       }
+      ref={ref}
       {...props}
     >
       {children}
@@ -218,6 +222,12 @@ const ContextualMenuDropdown = <L,>({
   ...props
 }: Props<L>): React.JSX.Element => {
   const dropdown = useRef<HTMLDivElement>(null);
+  // Track refs for each menuitem for focus management
+  const menuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Track focused menuitem index
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  // Track last focused index for menubar behavior
+  const lastFocusedIndex = useRef<number>(-1);
   const [verticalPosition, setVerticalPosition] =
     useState<VerticalPosition>("bottom");
   const [positionStyle, setPositionStyle] = useState(
@@ -229,6 +239,113 @@ const ContextualMenuDropdown = <L,>({
     ),
   );
   const [maxHeight, setMaxHeight] = useState<number>();
+
+  // Helper: get all focusable menuitems (not disabled)
+  const getFocusableMenuItems = () => {
+    return menuItemRefs.current.filter(
+      (el) =>
+        el &&
+        !el.hasAttribute("disabled") &&
+        el.getAttribute("aria-disabled") !== "true",
+    );
+  };
+
+  // Focus the menuitem at focusedIndex
+  useEffect(() => {
+    if (!isOpen) return;
+    const items = getFocusableMenuItems();
+    if (focusedIndex >= 0 && items[focusedIndex]) {
+      items[focusedIndex].focus();
+    }
+  }, [focusedIndex, isOpen]);
+
+  // On menu open, focus first item or last focused
+  useEffect(() => {
+    if (!isOpen) return;
+    const items = getFocusableMenuItems();
+    if (lastFocusedIndex.current >= 0 && items[lastFocusedIndex.current]) {
+      setFocusedIndex(lastFocusedIndex.current);
+    } else {
+      setFocusedIndex(0);
+    }
+    // Focus the menu container for keyboard events
+    dropdown.current?.focus();
+  }, [isOpen]);
+
+  // Update last focused index
+  useEffect(() => {
+    if (focusedIndex >= 0) {
+      lastFocusedIndex.current = focusedIndex;
+    }
+  }, [focusedIndex]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = getFocusableMenuItems();
+    if (!items.length) return;
+    const maxIdx = items.length - 1;
+    const idx = focusedIndex;
+    switch (e.key) {
+      case "Tab":
+        // Move focus out and close menu
+        if (handleClose) handleClose();
+        setFocusedIndex(-1);
+        break;
+      case "Enter":
+        if (items[idx]) {
+          items[idx].click();
+        }
+        if (handleClose) handleClose();
+        break;
+      case " ":
+        if (items[idx]) {
+          items[idx].click();
+        }
+        if (handleClose) handleClose();
+        break;
+      case "ArrowDown":
+        setFocusedIndex(idx < maxIdx ? idx + 1 : 0);
+        e.preventDefault();
+        break;
+      case "ArrowUp":
+        setFocusedIndex(idx > 0 ? idx - 1 : maxIdx);
+        e.preventDefault();
+        break;
+      case "Home":
+        setFocusedIndex(0);
+        e.preventDefault();
+        break;
+      case "End":
+        setFocusedIndex(maxIdx);
+        e.preventDefault();
+        break;
+      case "Escape":
+        if (handleClose) handleClose();
+        setFocusedIndex(-1);
+        break;
+      default:
+        if (e.key.length === 1 && /\S/.test(e.key)) {
+          const start = idx + 1;
+          const search = e.key.toLowerCase();
+          for (let i = start; i < items.length; i++) {
+            const label = items[i].textContent?.trim().toLowerCase();
+            if (label && label.startsWith(search)) {
+              setFocusedIndex(i);
+              return;
+            }
+          }
+          for (let i = 0; i < start; i++) {
+            const label = items[i].textContent?.trim().toLowerCase();
+            if (label && label.startsWith(search)) {
+              setFocusedIndex(i);
+              return;
+            }
+          }
+        }
+        break;
+    }
+  };
+
   // Update the styles to position the menu.
   const updatePositionStyle = useCallback(() => {
     setPositionStyle(
@@ -248,7 +365,9 @@ const ContextualMenuDropdown = <L,>({
       'a[href]:not([tabindex="-1"]), button:not([disabled]):not([aria-disabled="true"]), textarea:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), input:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), select:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), area[href]:not([tabindex="-1"]), iframe:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]), [contentEditable=true]:not([tabindex="-1"])';
     // the item is not interactable until the next animation frame.
     requestAnimationFrame(() => {
-      const firstItem = dropdown?.current?.querySelector(focusableElementSelectors);
+      const firstItem = dropdown?.current?.querySelector(
+        focusableElementSelectors,
+      );
       if (firstItem) {
         (firstItem as HTMLElement).focus();
       }
@@ -261,7 +380,6 @@ const ContextualMenuDropdown = <L,>({
   }, [dropdown, focusFirstItem, isOpen]);
 
   // keyboard listener for TAB key
-
 
   const updateVerticalPosition = useCallback(() => {
     if (!positionNode) {
@@ -347,17 +465,20 @@ const ContextualMenuDropdown = <L,>({
     }
   }, [positionNode]);
 
+  // Remove ref from props before spreading onto the div
+  const { ref: _ref, ...divProps } = props;
+
   return (
-    // Vanilla Framework uses .p-contextual-menu parent modifier classnames to determine the correct position of the .p-contextual-menu__dropdown dropdown (left, center, right).
-    // Extra span wrapper is required as the dropdown is rendered in a portal.
     <span className={contextualMenuClassName} style={positionStyle}>
-      <span
+      <div
         className={classNames("p-contextual-menu__dropdown", dropdownClassName)}
         id={id}
         aria-hidden={isOpen ? "false" : "true"}
         aria-label={Label.Dropdown}
         ref={dropdown}
         role={props.role || "menu"}
+        tabIndex={-1} // Make menu container focusable
+        onKeyDown={handleKeyDown}
         style={{
           ...(constrainPanelWidth && positionStyle?.width
             ? { width: positionStyle.width, minWidth: 0, maxWidth: "none" }
@@ -367,7 +488,7 @@ const ContextualMenuDropdown = <L,>({
             : {}),
           ...(verticalPosition === "top" ? { bottom: "0" } : {}),
         }}
-        {...props}
+        {...divProps}
       >
         {dropdownContent
           ? typeof dropdownContent === "function"
@@ -382,11 +503,14 @@ const ContextualMenuDropdown = <L,>({
                     role="group"
                   >
                     {item.map((link, j) =>
-                      generateLink<L>(
+                      generateLink(
                         link,
                         j,
                         handleClose,
-                      ),
+                        (el: HTMLButtonElement | null) => {
+                          menuItemRefs.current[i + j] = el;
+                        }
+                      )
                     )}
                   </span>
                 );
@@ -397,13 +521,16 @@ const ContextualMenuDropdown = <L,>({
                   </div>
                 );
               }
-              return generateLink<L>(
+              return generateLink(
                 item,
                 i,
                 handleClose,
+                (el: HTMLButtonElement | null) => {
+                  menuItemRefs.current[i] = el;
+                }
               );
             })}
-      </span>
+      </div>
     </span>
   );
 };
