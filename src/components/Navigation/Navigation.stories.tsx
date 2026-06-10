@@ -2,6 +2,7 @@ import React from "react";
 import { Meta, StoryObj } from "@storybook/react";
 
 import Navigation from "./Navigation";
+import SearchAndFilter from "components/SearchAndFilter";
 import { Theme } from "../../enums";
 
 const meta: Meta<typeof Navigation> = {
@@ -279,4 +280,82 @@ export const NoMenuItems: Story = {
       url: "#",
     },
   },
+};
+
+/**
+ * **Bug: Escape does not close the Navigation search when `SearchAndFilter`
+ * is also on the page.**
+ *
+ * Both `Navigation` (when `searchProps` is provided) and `SearchAndFilter`
+ * call `useOnEscapePressed` unconditionally — with no `isEnabled` guard — so
+ * both register on the global LIFO escape-key stack **at mount time**,
+ * regardless of whether their overlay is currently open.
+ *
+ * In this story `Navigation` renders first, so `SearchAndFilter` sits on
+ * top of the stack permanently. When the user opens Navigation's search box
+ * and presses Escape, `SearchAndFilter`'s `closePanel()` fires first — a
+ * no-op because the filter panel is closed — and the Navigation search box
+ * remains open.
+ *
+ * **Steps to reproduce:**
+ * 1. Click the 🔍 search icon in the navigation bar to open the search box.
+ * 2. Press **Escape**.
+ *
+ * **Expected:** the Navigation search box closes.
+ *
+ * **Actual (bug):** `SearchAndFilter.closePanel()` fires first (it's on top
+ * of the LIFO stack because it mounted after `Navigation`), the call is a
+ * no-op since the filter panel is already closed, and the Navigation search
+ * box stays open. The user must press Escape a *second* time to close it
+ * (once SearchAndFilter's handler has been "spent").
+ *
+ * **Root cause:** `useOnEscapePressed` in both components lacks
+ * `{ isEnabled: <open-state> }`, so their handlers occupy permanent stack
+ * slots regardless of visibility.
+ */
+export const BugEscapeConflictWithSearchAndFilter: Story = {
+  name: "Bug: Escape conflict with SearchAndFilter",
+
+  render: () => (
+    // Navigation renders FIRST → registers first on the LIFO stack.
+    // SearchAndFilter renders SECOND → registers second, sits on top.
+    // Escape always dispatches to SearchAndFilter's handler first, even
+    // when the filter panel is closed and Navigation's search is open.
+    <div>
+      <Navigation
+        logo={{
+          src: "https://assets.ubuntu.com/v1/82818827-CoF_white.svg",
+          title: "Canonical",
+          url: "#",
+        }}
+        items={[
+          { label: "Products", url: "#" },
+          { label: "Services", url: "#" },
+        ]}
+        searchProps={{ onSearch: () => null }}
+      />
+      <div style={{ padding: "1rem" }}>
+        <p style={{ marginBottom: "0.5rem", color: "#666" }}>
+          <strong>To reproduce the bug:</strong> click the search icon (🔍) in
+          the nav bar above to open the search box, then press{" "}
+          <kbd>Escape</kbd>. The search box should close but it does not —
+          SearchAndFilter&apos;s handler fires first and is a no-op.
+        </p>
+        <SearchAndFilter
+          returnSearchData={() => {}}
+          filterPanelData={[
+            {
+              id: 0,
+              heading: "Cloud",
+              chips: [
+                { lead: "Cloud", value: "AWS" },
+                { lead: "Cloud", value: "GCP" },
+                { lead: "Cloud", value: "Azure" },
+              ],
+            },
+          ]}
+        />
+      </div>
+    </div>
+  ),
 };
